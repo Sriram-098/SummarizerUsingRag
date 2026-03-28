@@ -529,10 +529,3 @@ EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2" 
 | **Black box answers** | Shows which source chunks were used |
 
 ---
-
-## License
-
-This project is open-source. Feel free to use, modify, and distribute.
-# SummarizerUsingRag
-#   S u m m a r i z e r U s i n g R a g  
- 
