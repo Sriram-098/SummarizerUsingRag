@@ -1,0 +1,25 @@
+Retrieval Augmented Generation (RAG) Architecture
+
+RAG is a powerful technique that combines the strengths of large language models with external knowledge retrieval.
+
+Key Components:
+1. Document Processing: Raw documents (PDFs, text files) are loaded and text is extracted.
+2. Chunking: Large documents are split into smaller, manageable chunks (usually 500-1000 characters).
+3. Embedding: Each chunk is converted into a numerical vector representation using embedding models.
+4. Vector Database: These embeddings are stored in a vector database like ChromaDB or FAISS for efficient similarity search.
+5. Query Processing: When a user asks a question, it is also embedded using the same model.
+6. Retrieval: The system performs similarity search to find the most relevant chunks.
+7. Generation: Retrieved chunks are sent to an LLM along with the query to generate a contextual answer.
+
+Benefits of RAG:
+- Reduces hallucination by grounding responses in actual documents
+- Allows LLMs to access up-to-date information without retraining
+- Works with private/proprietary data
+- More cost-effective than fine-tuning large models
+- Transparent - you can see which sources were used
+
+Popular Tools:
+- LangChain: Framework for building LLM applications
+- ChromaDB: Open-source vector database
+- Ollama: Run LLMs locally
+- HuggingFace: Embedding models and transformers

@@ -1,0 +1,27 @@
+# ── Secrets ──
+.env
+frontend/.env
+
+# ── Python ──
+.env/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ── Storage (user data, DBs, vectors) ──
+storage/
+
+# ── Frontend build ──
+frontend/node_modules/
+frontend/dist/
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+
+# ── OS ──
+.DS_Store
+Thumbs.db

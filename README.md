@@ -1,74 +1,122 @@
-# RAG System — Retrieval Augmented Generation
+# 🔍 RAG System — Enterprise Edition
 
-A complete, production-ready RAG (Retrieval Augmented Generation) pipeline built with Python. It processes your documents, stores them in a vector database, and lets you ask questions answered by a Large Language Model grounded in your own data.
+A complete, production-ready **Retrieval Augmented Generation** system with **Google OAuth**, **per-user document management**, **OCR support**, and a **React frontend**. Ask questions about your documents — answers are grounded in your data, never hallucinated.
 
-**100% free** — uses open-source embeddings (HuggingFace) + free LLM via OpenRouter.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATA PREPARATION (run once)                  │
-│                                                                 │
-│  ┌───────────┐   ┌──────────────┐   ┌──────────┐   ┌────────┐  │
-│  │ A. Raw     │──▶│ B. Extract   │──▶│ C. Chunk │──▶│D. Embed│  │
-│  │    Data    │   │    Text      │   │          │   │        │  │
-│  │ (PDF/TXT)  │   │ (PyPDF)      │   │ (500     │   │(HF     │  │
-│  │            │   │              │   │  chars)  │   │ model) │  │
-│  └───────────┘   └──────────────┘   └──────────┘   └───┬────┘  │
-│                                                         │       │
-│                                                         ▼       │
-│                                                 ┌──────────────┐│
-│                                                 │ Vector DB    ││
-│                                                 │ (ChromaDB)   ││
-│                                                 └──────┬───────┘│
-└────────────────────────────────────────────────────────┼────────┘
-                                                         │
-┌────────────────────────────────────────────────────────┼────────┐
-│                 QUERY TIME (run many times)             │        │
-│                                                         │        │
-│  ┌───────────┐   ┌──────────────┐   ┌──────────────┐   │        │
-│  │ 1. User   │──▶│ 2. Embed     │──▶│ 3. Retrieve  │◀──┘        │
-│  │    Query   │   │    Query     │   │    Top-K     │            │
-│  └───────────┘   └──────────────┘   └──────┬───────┘            │
-│                                             │                    │
-│                                             ▼                    │
-│                                     ┌──────────────┐             │
-│                                     │ 4. LLM       │             │
-│                                     │ (GLM-4.5-Air)│             │
-│                                     └──────┬───────┘             │
-│                                             │                    │
-│                                             ▼                    │
-│                                     ┌──────────────┐             │
-│                                     │ 5. Response  │             │
-│                                     └──────────────┘             │
-└──────────────────────────────────────────────────────────────────┘
-```
+**100% free** — open-source embeddings (HuggingFace) + free LLM via OpenRouter.
 
 ---
 
-## How It Works
+## Table of Contents
 
-### Data Preparation (Steps A → D)
+1. [Architecture Overview](#architecture-overview)
+2. [Features](#features)
+3. [Tech Stack](#tech-stack)
+4. [Project Structure](#project-structure)
+5. [Prerequisites](#prerequisites)
+6. [Setup Instructions](#setup-instructions)
+   - [Step 1: Clone & Install Python Dependencies](#step-1-clone--install-python-dependencies)
+   - [Step 2: Get OpenRouter API Key (Free)](#step-2-get-openrouter-api-key-free)
+   - [Step 3: Set Up Google OAuth](#step-3-set-up-google-oauth)
+   - [Step 4: Configure Environment Variables](#step-4-configure-environment-variables)
+   - [Step 5: Install Frontend Dependencies](#step-5-install-frontend-dependencies)
+   - [Step 6: (Optional) Install Tesseract for OCR](#step-6-optional-install-tesseract-for-ocr)
+7. [Running the Application](#running-the-application)
+8. [How It Works](#how-it-works)
+9. [API Reference](#api-reference)
+10. [Source Code Breakdown](#source-code-breakdown)
+    - [RAG Core (src/)](#rag-core-src)
+    - [Backend (backend/)](#backend-backend)
+    - [Frontend (frontend/src/)](#frontend-frontendsrc)
+    - [Prompt Templates (prompts/)](#prompt-templates-prompts)
+11. [Configuration & Customization](#configuration--customization)
+12. [Troubleshooting](#troubleshooting)
+13. [Legacy Interfaces](#legacy-interfaces)
 
-| Step | What Happens | Code | Tool Used |
-|------|-------------|------|-----------|
-| **A. Raw Data** | Load PDF/TXT files from `./data/` folder | `src/loader.py` | PyPDF, TextLoader |
-| **B. Extract** | Extract text content from each file | `src/loader.py` | LangChain Loaders |
-| **C. Chunk** | Split text into 500-char pieces with 50-char overlap | `src/chunker.py` | RecursiveCharacterTextSplitter |
-| **D. Embed + Store** | Convert chunks to vectors, store in ChromaDB | `src/embedder.py` | HuggingFace `all-MiniLM-L6-v2`, ChromaDB |
+---
 
-### Query Time (Steps 1 → 5)
+## Architecture Overview
 
-| Step | What Happens | Code | Tool Used |
-|------|-------------|------|-----------|
-| **1. Query** | User asks a question | `src/retriever.py` | — |
-| **2. Embed Query** | Question is converted to a vector | `src/retriever.py` | Same HuggingFace model |
-| **3. Retrieve** | Find top-3 most similar chunks from VectorDB | `src/retriever.py` | ChromaDB similarity search |
-| **4. LLM** | Send retrieved context + question to LLM | `src/generator.py` | OpenRouter (GLM-4.5-Air) |
-| **5. Response** | LLM generates an answer grounded in your documents | `src/generator.py` | — |
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        ENTERPRISE RAG SYSTEM                            │
+│                                                                          │
+│   ┌──────────────────────┐          ┌──────────────────────────┐         │
+│   │   React Frontend     │  REST    │   FastAPI Backend         │         │
+│   │   (Vite :5173)       │◄────────►│   (Uvicorn :8000)        │         │
+│   │                      │   API    │                          │         │
+│   │  • Google Sign-In    │          │  • Google OAuth verify   │         │
+│   │  • Document Upload   │          │  • JWT Authentication    │         │
+│   │  • Chat Interface    │          │  • Per-user storage      │         │
+│   │  • Settings Panel    │          │  • OCR processing        │         │
+│   └──────────────────────┘          │  • RAG pipeline          │         │
+│                                     └─────────┬────────────────┘         │
+│                                               │                          │
+│   ┌───────────────────────────────────────────┼──────────────────────┐   │
+│   │              RAG ENGINE (src/)             │                      │   │
+│   │                                           ▼                      │   │
+│   │  ┌────────┐  ┌─────────┐  ┌───────┐  ┌────────┐                 │   │
+│   │  │ A.Load │─►│B.Extract│─►│C.Chunk│─►│D.Embed │                 │   │
+│   │  │ PDF/TXT│  │  Text   │  │ 1000  │  │ HF     │                 │   │
+│   │  └────────┘  └─────────┘  │ chars │  │ model  │                 │   │
+│   │                           └───────┘  └───┬────┘                 │   │
+│   │                                          ▼                      │   │
+│   │                                  ┌──────────────┐               │   │
+│   │                                  │  ChromaDB    │               │   │
+│   │                                  │ (per-user)   │               │   │
+│   │                                  └──────┬───────┘               │   │
+│   │                                         │                       │   │
+│   │  ┌────────┐  ┌─────────┐  ┌──────────┐ │                       │   │
+│   │  │1.Query │─►│2.Embed  │─►│3.Retrieve│◄┘                       │   │
+│   │  │        │  │  Query  │  │  Top-K   │                          │   │
+│   │  └────────┘  └─────────┘  └────┬─────┘                          │   │
+│   │                                ▼                                │   │
+│   │                         ┌────────────┐                          │   │
+│   │                         │ 4. LLM     │ (OpenRouter, free)       │   │
+│   │                         └─────┬──────┘                          │   │
+│   │                               ▼                                 │   │
+│   │                         ┌────────────┐                          │   │
+│   │                         │ 5.Response │ (grounded in docs)       │   │
+│   │                         └────────────┘                          │   │
+│   └──────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Google OAuth** | Sign in with Google — no passwords to manage |
+| **Per-user Isolation** | Each user gets their own document storage & vector database |
+| **Document Upload** | Upload PDF, TXT, or image files — directly in the browser |
+| **50 MB Limit** | Files over 50 MB are rejected with a clear error message |
+| **OCR Support** | Extract text from scanned PDFs and images using Tesseract |
+| **Smart Fallback** | If PDF text extraction yields < 50 chars, auto-falls back to OCR |
+| **Multiple LLMs** | Switch between 4 free LLM models via OpenRouter |
+| **Strict Prompt** | LLM only answers from your documents — no hallucination |
+| **9 Prompt Templates** | Strict, conversational, analytical, and domain-specific styles |
+| **Source Citations** | Every answer shows which document chunks were used |
+| **React Frontend** | Modern UI with Tailwind CSS — sidebar, chat, file management |
+| **REST API** | Full FastAPI backend with Swagger docs at `/docs` |
+| **Streamlit UI** | Legacy Streamlit interface still available |
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Role |
+|-------|-----------|------|
+| **Frontend** | React 19, Vite, Tailwind CSS | User interface |
+| **Auth** | Google OAuth 2.0, JWT (python-jose) | Authentication |
+| **Backend** | FastAPI, Uvicorn, SQLAlchemy | REST API server |
+| **Database** | SQLite | User & document metadata |
+| **RAG Core** | LangChain (LCEL pattern) | Pipeline orchestration |
+| **Embeddings** | HuggingFace `all-MiniLM-L6-v2` | Text → vectors (local, free) |
+| **Vector DB** | ChromaDB | Similarity search storage |
+| **LLM** | OpenRouter (GLM-4.5-Air) | Answer generation (cloud, free) |
+| **OCR** | Tesseract + pdf2image | Scanned document extraction |
+| **PDF** | PyPDF | Regular PDF text extraction |
 
 ---
 
@@ -76,461 +124,719 @@ A complete, production-ready RAG (Retrieval Augmented Generation) pipeline built
 
 ```
 ldsrag/
-├── app.py                 # Main entry point (CLI interface)
-├── requirements.txt       # Python dependencies
-├── .env                   # API key (OpenRouter) — DO NOT COMMIT
-├── .gitignore             # Ignores .env, venv, vectordb, __pycache__
-├── data/                  # Put your PDF/TXT files here
-│   └── sample_document.txt
-├── vectordb/              # ChromaDB storage (auto-created after ingest)
-│   ├── chroma.sqlite3
-│   └── <uuid>/
-└── src/
-    ├── __init__.py
-    ├── loader.py          # Steps A + B: Load & extract documents
-    ├── chunker.py         # Step C: Split into chunks
-    ├── embedder.py        # Step D: Embed + store in Vector DB
-    ├── retriever.py       # Steps 1, 2, 3: Query → Embed → Retrieve
-    ├── generator.py       # Steps 4, 5: LLM → Response
-    └── pipeline.py        # Full pipeline connecting everything
+│
+├── .env                        # API keys & secrets (DO NOT COMMIT)
+├── .env.example                # Template for .env
+├── .gitignore                  # Git ignore rules
+├── requirements.txt            # All Python dependencies
+├── README.md                   # This file
+├── run.py                      # Backend launcher (python run.py)
+├── app.py                      # CLI entry point (legacy)
+├── streamlit_app.py            # Streamlit UI (legacy)
+│
+├── backend/                    # ── FastAPI Backend ──
+│   ├── __init__.py
+│   ├── main.py                 #   App factory, CORS, routers, startup
+│   ├── auth.py                 #   Google OAuth verification + JWT
+│   ├── models.py               #   SQLAlchemy models (User, Document)
+│   ├── database.py             #   SQLite engine + session
+│   ├── ocr.py                  #   Tesseract OCR processing
+│   └── routes/
+│       ├── __init__.py
+│       ├── auth.py             #   POST /api/auth/google, GET /api/auth/me
+│       ├── documents.py        #   POST /api/documents/upload, GET, DELETE
+│       └── rag.py              #   POST /api/rag/ingest, POST /api/rag/query
+│
+├── frontend/                   # ── React Frontend ──
+│   ├── .env                    #   VITE_GOOGLE_CLIENT_ID
+│   ├── .env.example            #   Template
+│   ├── index.html              #   HTML entry
+│   ├── package.json            #   npm dependencies
+│   ├── vite.config.js          #   Vite config with API proxy
+│   ├── tailwind.config.js      #   Tailwind theme
+│   ├── postcss.config.js       #   PostCSS config
+│   └── src/
+│       ├── main.jsx            #   React root + GoogleOAuthProvider
+│       ├── App.jsx             #   Routes + auth guards
+│       ├── api.js              #   Axios client + JWT interceptor
+│       ├── index.css           #   Global styles + Tailwind
+│       ├── context/
+│       │   └── AuthContext.jsx #   Auth state management
+│       ├── pages/
+│       │   ├── Login.jsx       #   Google Sign-In page
+│       │   └── Dashboard.jsx   #   Main app layout
+│       └── components/
+│           ├── Navbar.jsx      #   Top bar with user info
+│           ├── Sidebar.jsx     #   Upload, docs, settings, ingest
+│           └── ChatPanel.jsx   #   Chat messages, sources, input
+│
+├── src/                        # ── RAG Engine ──
+│   ├── __init__.py
+│   ├── loader.py               #   Steps A+B: Load PDF/TXT files
+│   ├── chunker.py              #   Step C: Split text into chunks
+│   ├── embedder.py             #   Step D: HuggingFace embed + ChromaDB
+│   ├── retriever.py            #   Steps 1-3: Query → similarity search
+│   ├── generator.py            #   Steps 4-5: OpenRouter LLM → response
+│   └── pipeline.py             #   RAGPipeline orchestrator class
+│
+├── prompts/                    # ── 9 Prompt Templates ──
+│   ├── strict/
+│   │   ├── strict_qa.py        #   Default — document-grounded only
+│   │   └── strict_cited.py     #   With citation markers
+│   ├── conversational/
+│   │   ├── friendly.py         #   Friendly tone
+│   │   └── eli5.py             #   Explain Like I'm 5
+│   ├── analytical/
+│   │   ├── summarizer.py       #   Summarization
+│   │   ├── comparison.py       #   Compare & contrast
+│   │   └── step_by_step.py     #   Step-by-step reasoning
+│   └── domain/
+│       ├── technical.py        #   Technical documentation
+│       ├── academic.py         #   Academic tone
+│       └── legal.py            #   Legal document style
+│
+├── data/                       # ── Sample Documents ──
+│   ├── sample_document.txt
+│   ├── machine_learning_guide.txt
+│   └── ai_complete_reference.pdf
+│
+├── storage/                    # ── All Persistent Data (git-ignored) ──
+│   ├── db/                     #   SQLite database (rag.db)
+│   ├── uploads/                #   Per-user uploaded files
+│   │   └── <user-uuid>/
+│   ├── vectors/                #   Per-user vector databases
+│   │   └── <user-uuid>/
+│   └── shared_vectors/         #   Shared vector DB (legacy/CLI)
+│
+├── tests/                      # ── Test Suite ──
+│   ├── __init__.py
+│   └── test_pipeline.py        #   RAG pipeline unit tests
+│
+├── docs/                       # ── Documentation ──
+│   └── README.md
+│
+└── .streamlit/                 # Streamlit config
+    └── config.toml
 ```
 
 ---
 
-## Source Code Breakdown (`src/`)
+## Prerequisites
 
-Below is a detailed explanation of every file inside `src/` — what it does, how it works, and where it fits in the RAG architecture.
-
----
-
-### `src/loader.py` — Document Loading (Steps A + B)
-
-**Purpose:** Reads raw files from the `data/` folder and extracts their text content.
-
-**How it works:**
-1. Scans the `data/` directory for all files
-2. For each `.pdf` file → uses `PyPDFLoader` to extract text page by page
-3. For each `.txt` file → uses `TextLoader` to read the full text content
-4. Unsupported file types (e.g., `.docx`, `.csv`) are skipped with a warning
-5. Returns a list of `Document` objects, where each object holds the extracted text and metadata (filename, page number)
-
-**Key function:**
-```python
-load_documents(data_path="./data/")
-# Input:  path to folder containing PDF/TXT files
-# Output: list of Document objects with .page_content and .metadata
-```
-
-**Example output:**
-```
-[A] Found 3 files in './data'
-[B] Extracted 12 pages from PDF: ai_complete_reference.pdf
-[B] Extracted 1 document(s) from TXT: sample_document.txt
-[B] Total extracted: 14 documents
-```
-
----
-
-### `src/chunker.py` — Text Splitting (Step C)
-
-**Purpose:** Splits large documents into smaller, overlapping chunks so they can be embedded and searched efficiently.
-
-**Why chunking is needed:**
-- Embedding models have input size limits
-- Smaller chunks allow more precise retrieval (finding the exact paragraph that answers a question)
-- Overlap between chunks ensures no information is lost at boundaries
-
-**How it works:**
-1. Uses `RecursiveCharacterTextSplitter` from LangChain
-2. Splits text using a hierarchy of separators: paragraph breaks (`\n\n`) → line breaks (`\n`) → sentences (`. `) → words (` `) → characters (`""`)
-3. Each chunk is at most `chunk_size` characters (default: 1000)
-4. Adjacent chunks share `chunk_overlap` characters (default: 100) to preserve context
-
-**Key function:**
-```python
-chunk_documents(documents, chunk_size=1000, chunk_overlap=100)
-# Input:  list of Document objects from loader.py
-# Output: list of smaller Document objects (chunks)
-```
-
-**Example:** A 30,000-character document → ~33 chunks of ~1000 characters each
-
----
-
-### `src/embedder.py` — Embedding + Vector Storage (Step D)
-
-**Purpose:** Converts text chunks into numerical vectors (embeddings) and stores them in ChromaDB for fast similarity search.
-
-**How it works:**
-1. Loads the HuggingFace embedding model `sentence-transformers/all-MiniLM-L6-v2` (runs locally, free, no API key)
-2. Each text chunk is converted into a 384-dimensional vector that captures its semantic meaning
-3. All vectors are stored in ChromaDB, a local vector database persisted at `./vectordb/`
-4. Also supports loading an existing vector database from disk (used when querying without re-ingesting)
-
-**Key functions:**
-```python
-get_embedding_model()
-# Returns: HuggingFaceEmbeddings model (runs on CPU, free)
-
-store_in_vectordb(chunks, embeddings, persist_directory="./vectordb")
-# Input:  chunks from chunker.py + embedding model
-# Output: ChromaDB vector database instance (saved to disk)
-
-load_vectordb(embeddings, persist_directory="./vectordb")
-# Loads an existing vector database from disk (no re-embedding needed)
-```
-
-**How embeddings work:**
-- The sentence `"RAG reduces hallucination"` becomes a vector like `[0.23, -0.41, 0.87, ...]` (384 numbers)
-- Semantically similar sentences produce similar vectors (close in vector space)
-- This enables finding relevant chunks by vector similarity rather than keyword matching
-
----
-
-### `src/retriever.py` — Query & Retrieval (Steps 1, 2, 3)
-
-**Purpose:** Takes a user's question, embeds it into a vector, and retrieves the most relevant chunks from the vector database.
-
-**How it works:**
-1. **Step 1** — Receives the user's natural language question
-2. **Step 2** — Embeds the question using the same HuggingFace model used during ingestion (this happens automatically inside the retriever)
-3. **Step 3** — Performs cosine similarity search in ChromaDB to find the top-K chunks closest to the question vector
-
-**Key functions:**
-```python
-get_retriever(vectordb, top_k=3)
-# Input:  ChromaDB instance + number of results to return
-# Output: a LangChain Retriever object (callable)
-
-retrieve_relevant_docs(retriever, query="What is RAG?")
-# Input:  retriever + user question string
-# Output: list of top-K Document objects most relevant to the question
-```
-
-**Example output:**
-```
-[1] Query: What is overfitting?
-[2] Embedding query...
-[3] Retrieved 3 relevant chunks from Vector Database
-    Chunk 1: Overfitting occurs when a model learns the training data too well...
-    Chunk 2: Regularization techniques like L1 and L2 penalties prevent overfitting...
-    Chunk 3: Early stopping monitors validation loss and stops training when...
-```
-
----
-
-### `src/generator.py` — LLM Response Generation (Steps 4, 5)
-
-**Purpose:** Sends the retrieved context chunks + user question to the LLM and generates a grounded answer.
-
-**How it works:**
-1. Loads the LLM (GLM-4.5-Air) via OpenRouter API using an OpenAI-compatible interface
-2. Loads the API key from the `.env` file automatically using `python-dotenv`
-3. Uses a **strict prompt template** (from `prompts/strict/strict_qa.py`) that instructs the LLM to ONLY answer from the provided context — never from its own training data
-4. Builds an LCEL (LangChain Expression Language) chain: `Retriever → Format Docs → Prompt → LLM → Parse Output`
-5. Returns the answer text + source documents used
-
-**Key functions:**
-```python
-get_llm(model_name="z-ai/glm-4.5-air:free", temperature=0.3)
-# Returns: ChatOpenAI instance connected to OpenRouter API
-
-create_rag_chain(llm, retriever)
-# Builds the full chain: retriever | format_docs + question | prompt | llm | parser
-# Returns: an invokable LCEL chain
-
-generate_response(rag_chain, query, retriever)
-# Input:  the chain + user question + retriever (for fetching sources)
-# Output: tuple of (answer_string, source_documents)
-```
-
-**The LCEL chain flow:**
-```
-User Question
-     ↓
-┌────────────────────┐
-│ Retriever          │ → finds top-K relevant chunks
-├────────────────────┤
-│ format_docs()      │ → joins chunks into one context string
-├────────────────────┤
-│ Prompt Template    │ → fills {context} and {question} into the strict prompt
-├────────────────────┤
-│ LLM (GLM-4.5-Air) │ → generates answer based on context only
-├────────────────────┤
-│ StrOutputParser    │ → extracts plain text from LLM response
-└────────────────────┘
-     ↓
-  Final Answer
-```
-
-**Prompt switching:** You can change the active prompt by editing the import at the top of `generator.py`. 9 prompt templates are available in the `prompts/` folder.
-
----
-
-### `src/pipeline.py` — Full Pipeline Orchestrator
-
-**Purpose:** Connects ALL the above files into a single `RAGPipeline` class with simple `ingest()`, `setup_qa()`, and `query()` methods.
-
-**How it works:**
-- Acts as the **central controller** that calls `loader.py` → `chunker.py` → `embedder.py` → `retriever.py` → `generator.py` in the correct order
-- `app.py` (the CLI) only talks to `pipeline.py` — it never imports the individual src files directly
-
-**Key class and methods:**
-```python
-class RAGPipeline:
-    def __init__(self, data_path="./data", vectordb_path="./vectordb", llm_model="z-ai/glm-4.5-air:free")
-
-    def ingest(chunk_size=500, chunk_overlap=50)
-        # Runs: loader.py → chunker.py → embedder.py
-        # Result: documents are embedded and stored in ChromaDB
-
-    def setup_qa(top_k=3)
-        # Runs: embedder.py (load) → retriever.py → generator.py (create chain)
-        # Result: RAG chain is ready to answer questions
-
-    def query(question)
-        # Runs: retriever.py → generator.py
-        # Result: returns (answer, source_documents)
-```
-
-**Complete flow when user types `ingest` then `query`:**
-```
-ingest:
-  loader.py    → loads PDFs/TXTs from data/
-  chunker.py   → splits into 1000-char chunks
-  embedder.py  → embeds chunks → stores in ChromaDB
-
-query "What is RAG?":
-  retriever.py → embeds question → searches ChromaDB → returns top-3 chunks
-  generator.py → sends chunks + question to LLM → returns grounded answer
-```
-
----
-
-## Tech Stack
-
-| Component | Tool | Cost |
-|-----------|------|------|
-| **Framework** | LangChain | Free |
-| **Embeddings** | HuggingFace `sentence-transformers/all-MiniLM-L6-v2` | Free (local) |
-| **Vector Database** | ChromaDB | Free (local) |
-| **LLM** | Z.ai GLM-4.5-Air via OpenRouter | Free |
-| **Document Parsing** | PyPDF | Free |
-| **Language** | Python 3.10+ | Free |
+| Requirement | Version | Check Command |
+|-------------|---------|---------------|
+| **Python** | 3.10+ | `python --version` |
+| **Node.js** | 18+ | `node --version` |
+| **npm** | 9+ | `npm --version` |
+| **Git** | Any | `git --version` |
+| Tesseract *(optional, for OCR)* | 5.0+ | `tesseract --version` |
 
 ---
 
 ## Setup Instructions
 
-### Prerequisites
-
-- Python 3.10 or higher
-- Git (optional, for cloning)
-
-### Step 1: Clone or Download
+### Step 1: Clone & Install Python Dependencies
 
 ```bash
-git clone <your-repo-url>
-cd ldsrag
-```
+# Clone the repository
+git clone https://github.com/Sriram-098/SummarizerUsingRag.git
+cd SummarizerUsingRag
 
-### Step 2: Create Virtual Environment
-
-```bash
+# Create a virtual environment
 python -m venv venv
-```
 
-Activate it:
+# Activate it
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
 
-- **Windows (PowerShell):**
-  ```powershell
-  venv\Scripts\Activate.ps1
-  ```
-- **Windows (CMD):**
-  ```cmd
-  venv\Scripts\activate.bat
-  ```
-- **macOS/Linux:**
-  ```bash
-  source venv/bin/activate
-  ```
-
-### Step 3: Install Dependencies
-
-```bash
+# Install all Python packages
 pip install -r requirements.txt
 ```
 
-### Step 4: Get OpenRouter API Key (Free)
+This installs:
+- **RAG core**: LangChain, ChromaDB, HuggingFace, PyPDF, sentence-transformers
+- **Backend**: FastAPI, Uvicorn, SQLAlchemy, python-jose, google-auth
+- **OCR**: pytesseract, pdf2image, Pillow
 
-1. Go to [https://openrouter.ai](https://openrouter.ai) and sign up (free)
-2. Navigate to [https://openrouter.ai/keys](https://openrouter.ai/keys)
-3. Create a new API key
-4. Open the `.env` file and paste your key:
+### Step 2: Get OpenRouter API Key (Free)
+
+1. Go to [https://openrouter.ai](https://openrouter.ai)
+2. Sign up (free, no credit card needed)
+3. Go to [https://openrouter.ai/keys](https://openrouter.ai/keys)
+4. Click **Create Key**
+5. Copy the key — it starts with `sk-or-v1-...`
+
+### Step 3: Set Up Google OAuth
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or select an existing one)
+3. Navigate to **APIs & Services** → **OAuth consent screen**
+   - Choose **External**
+   - Fill in app name, user support email, developer email
+   - Add scope: `email`, `profile`, `openid`
+   - Add your email as a test user
+   - Click **Publish** or keep in testing mode
+4. Navigate to **APIs & Services** → **Credentials**
+5. Click **+ CREATE CREDENTIALS** → **OAuth client ID**
+   - Application type: **Web application**
+   - Name: `RAG Enterprise`
+   - Authorized JavaScript origins: `http://localhost:5173`
+   - Authorized redirect URIs: `http://localhost:5173`
+6. Click **CREATE**
+7. Copy the **Client ID** and **Client Secret**
+
+> ⚠️ Use exactly `http://localhost:5173` — no trailing slash, `http://` not `https://`.
+
+### Step 4: Configure Environment Variables
+
+**Backend** — create `.env` in the project root:
 
 ```env
+# OpenRouter API Key (from Step 2)
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
+
+# Google OAuth (from Step 3)
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# JWT Secret (change this in production!)
+JWT_SECRET=some-random-secret-string
 ```
 
-### Step 5: Add Your Documents
+**Frontend** — create `frontend/.env`:
 
-Place your PDF or TXT files in the `data/` folder:
-
-```
-data/
-├── your_document.pdf
-├── notes.txt
-└── research_paper.pdf
+```env
+VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+VITE_API_URL=http://localhost:8000
 ```
 
-### Step 6: Run the Application
+> ⚠️ The `GOOGLE_CLIENT_ID` must be **identical** in both `.env` files.
+
+### Step 5: Install Frontend Dependencies
 
 ```bash
-python app.py
+cd frontend
+npm install
+cd ..
 ```
 
-### Step 7: Run the Streamlit Web UI (Optional)
+### Step 6: (Optional) Install Tesseract for OCR
 
-Instead of the CLI, you can use the beautiful Streamlit web interface:
+OCR is optional but enables text extraction from scanned PDFs and images.
 
+**Windows:**
+1. Download from [UB Mannheim Tesseract](https://github.com/UB-Mannheim/tesseract/wiki)
+2. Run the installer
+3. Add to PATH: `C:\Program Files\Tesseract-OCR`
+4. Verify: `tesseract --version`
+
+**Linux:**
 ```bash
-streamlit run streamlit_app.py
+sudo apt install tesseract-ocr
 ```
 
-This opens a web app at **http://localhost:8501** with:
-- **Chat interface** — ask questions and get answers in a conversation view
-- **Sidebar controls** — switch LLM models, adjust chunk size/overlap/top-k
-- **Document list** — see all files in `data/` with sizes
-- **Vector DB status** — view how many vectors are stored
-- **Ingest button** — process documents with one click
-- **Source chunks** — expandable view of which chunks were used per answer
-- **Response time** — see how long each query took
+**Mac:**
+```bash
+brew install tesseract
+```
 
-> **Note:** Both `app.py` (CLI) and `streamlit_app.py` (Web UI) use the same RAG pipeline. You can use either one.
+The app detects Tesseract automatically. If not installed, the OCR checkbox simply won't appear in the sidebar.
 
 ---
 
-## Usage
+## Running the Application
 
-### Ingest Documents (A → B → C → D)
+### Quick Start
 
-This processes your documents and stores them in the vector database. Run this once, or whenever you add new documents.
+Open **two terminals**, both with the virtual environment activated:
 
-```
-> ingest
-```
+**Terminal 1 — Backend (FastAPI):**
+```bash
+# Windows
+venv\Scripts\uvicorn.exe backend.main:app --reload --port 8000
 
-Output:
-```
---- Step A + B: Raw Data Sources + Information Extraction ---
-[A] Found 1 files in './data'
-[B] Extracted 1 document(s) from TXT: sample_document.txt
-
---- Step C: Chunking ---
-[C] Chunking: 1 documents → 3 chunks
-
---- Step D: Embedding → Vector Database ---
-[D] Embedding model loaded: sentence-transformers/all-MiniLM-L6-v2
-[D] Stored 3 chunks in Vector Database (ChromaDB)
+# Linux/Mac
+uvicorn backend.main:app --reload --port 8000
 ```
 
-### Query Documents (1 → 2 → 3 → 4 → 5)
-
-Ask questions about your documents:
-
+You should see:
 ```
-> query
-
-[?] What is RAG?
-
-[Answer]: RAG (Retrieval Augmented Generation) is a technique that combines
-the strengths of large language models with external knowledge retrieval...
+✅ Database initialized
+✅ Enterprise RAG API ready
+INFO:     Uvicorn running on http://127.0.0.1:8000
 ```
 
-### Commands
+**Terminal 2 — Frontend (React):**
+```bash
+cd frontend
+npm run dev
+```
 
-| Command | Description |
-|---------|-------------|
-| `ingest` | Process documents and build vector database |
-| `query` | Ask questions about your documents |
-| `help` | Show available commands |
-| `exit` | Quit the application |
+You should see:
+```
+VITE v6.x.x  ready in xxx ms
+
+➜  Local:   http://localhost:5173/
+```
+
+### Access Points
+
+| URL | What |
+|-----|------|
+| `http://localhost:5173` | **React UI** — main application |
+| `http://localhost:8000/docs` | **Swagger UI** — interactive API docs |
+| `http://localhost:8000/api/health` | Health check endpoint |
+
+### User Workflow
+
+1. Open `http://localhost:5173`
+2. Click **Sign in with Google** → authenticate with your Google account
+3. Upload your PDF/TXT documents using the **Upload Document** button in the sidebar
+4. Click **Ingest Documents** to process them into vectors
+5. Type a question in the chat input — get grounded answers with source citations
+
+### What "Ingest" Means
+
+Ingestion is the one-time data preparation step:
+- **Load** → reads your uploaded files
+- **Extract** → pulls text from PDFs/TXT
+- **Chunk** → splits text into 1000-char pieces (configurable)
+- **Embed** → converts each chunk into a 384-dimensional vector
+- **Store** → saves vectors into your private ChromaDB
+
+After ingestion, your vectors persist on disk. You only need to re-ingest when you add or remove documents.
 
 ---
 
-## Changing the LLM Model
+## How It Works
 
-Edit the `LLM_MODEL` variable in `app.py`:
+### Data Preparation (Steps A → D) — happens during "Ingest"
+
+| Step | What Happens | Code File | Tool |
+|------|-------------|-----------|------|
+| **A. Raw Data** | Load PDF/TXT files from user's upload folder | `src/loader.py` | PyPDF, TextLoader |
+| **B. Extract** | Extract text content (+ OCR fallback for scanned docs) | `src/loader.py`, `backend/ocr.py` | LangChain Loaders, Tesseract |
+| **C. Chunk** | Split text into 1000-char pieces with 100-char overlap | `src/chunker.py` | RecursiveCharacterTextSplitter |
+| **D. Embed + Store** | Convert chunks to 384-dim vectors, store in ChromaDB | `src/embedder.py` | HuggingFace `all-MiniLM-L6-v2` |
+
+### Query Pipeline (Steps 1 → 5) — happens on each question
+
+| Step | What Happens | Code File | Tool |
+|------|-------------|-----------|------|
+| **1. Query** | User asks a question in chat | `src/retriever.py` | — |
+| **2. Embed Query** | Question converted to 384-dim vector | `src/retriever.py` | Same HuggingFace model |
+| **3. Retrieve** | Find top-K most similar chunks via cosine similarity | `src/retriever.py` | ChromaDB |
+| **4. LLM** | Send context + question to LLM with strict prompt | `src/generator.py` | OpenRouter (GLM-4.5-Air) |
+| **5. Response** | LLM answers from documents only — no hallucination | `src/generator.py` | — |
+
+### Authentication Flow
+
+```
+User clicks "Sign in with Google"
+    ↓
+Google returns an ID token (JWT signed by Google)
+    ↓
+Frontend sends token to POST /api/auth/google
+    ↓
+Backend verifies token with Google's public keys
+    ↓
+Backend creates/finds user in SQLite database
+    ↓
+Backend issues its own JWT (valid 72 hours)
+    ↓
+Frontend stores JWT in localStorage
+    ↓
+Every API call includes: Authorization: Bearer <jwt>
+    ↓
+Backend validates JWT → extracts user → scopes data to that user
+```
+
+### Per-User Isolation
+
+Each authenticated user gets:
+- `storage/uploads/<user-uuid>/` — uploaded files stored here
+- `storage/vectors/<user-uuid>/` — private ChromaDB instance
+- Database records in `storage/db/rag.db` — document metadata
+
+Users cannot see or query each other's documents.
+
+---
+
+## API Reference
+
+All endpoints (except auth) require `Authorization: Bearer <jwt>` header.
+
+### Authentication
+
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/auth/google` | `{ "credential": "<google-id-token>" }` | Verify Google token, return JWT |
+| `GET` | `/api/auth/me` | — | Get current user info |
+
+### Documents
+
+| Method | Endpoint | Body / Params | Description |
+|--------|----------|---------------|-------------|
+| `POST` | `/api/documents/upload?use_ocr=false` | `multipart/form-data` (file) | Upload a document (max 50 MB) |
+| `GET` | `/api/documents/` | — | List user's documents |
+| `DELETE` | `/api/documents/{doc_id}` | — | Delete a document |
+
+### RAG
+
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/rag/ingest` | `{ "chunk_size": 1000, "chunk_overlap": 100, "model": "..." }` | Ingest all uploaded docs into vector DB |
+| `POST` | `/api/rag/query` | `{ "question": "...", "top_k": 3, "model": "..." }` | Query the RAG pipeline |
+| `GET` | `/api/rag/stats` | — | Get vector DB stats |
+
+### System
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check |
+| `GET` | `/api/ocr/status` | Check if Tesseract OCR is available |
+
+Full interactive API docs available at: **http://localhost:8000/docs**
+
+---
+
+## Source Code Breakdown
+
+### RAG Core (`src/`)
+
+#### `src/loader.py` — Steps A + B: Load & Extract
+
+Loads all PDF and TXT files from a given directory. Uses LangChain's `PyPDFLoader` for PDFs and `TextLoader` for text files. Returns a list of `Document` objects with extracted text and metadata.
 
 ```python
-# Free models available on OpenRouter:
-LLM_MODEL = "z-ai/glm-4.5-air:free"          # Default — best balance
-LLM_MODEL = "stepfun/step-3.5-flash:free"     # Fast + good reasoning
-LLM_MODEL = "openai/gpt-oss-120b:free"        # Strong reasoning
-LLM_MODEL = "arcee-ai/trinity-mini:free"      # Efficient + long context
+documents = load_documents("./data")
+# → [Document(page_content="...", metadata={"source": "file.pdf"}), ...]
+```
+
+#### `src/chunker.py` — Step C: Chunking
+
+Splits documents into smaller overlapping pieces using `RecursiveCharacterTextSplitter`. Default: 1000 chars per chunk, 100 chars overlap. Splits on paragraph breaks → sentence breaks → word breaks → character breaks.
+
+```python
+chunks = chunk_documents(documents, chunk_size=1000, chunk_overlap=100)
+# → [Document(page_content="chunk text...", metadata={"source": "file.pdf"}), ...]
+```
+
+#### `src/embedder.py` — Step D: Embed + Store
+
+Loads the `sentence-transformers/all-MiniLM-L6-v2` model (runs locally on CPU, no API key needed). Converts each chunk into a 384-dimensional vector. Stores vectors in ChromaDB with automatic persistence to disk.
+
+```python
+embeddings = get_embedding_model()
+vectordb = store_in_vectordb(chunks, embeddings, "./storage/shared_vectors")
+# Later:
+vectordb = load_vectordb(embeddings, "./storage/shared_vectors")
+```
+
+#### `src/retriever.py` — Steps 1, 2, 3: Query → Retrieve
+
+Creates a retriever from ChromaDB that performs cosine similarity search. When a question comes in, it's automatically embedded with the same model and matched against stored vectors.
+
+```python
+retriever = get_retriever(vectordb, top_k=3)
+docs = retriever.invoke("What is machine learning?")
+# → [Document(...), Document(...), Document(...)]
+```
+
+#### `src/generator.py` — Steps 4, 5: LLM → Response
+
+Connects to OpenRouter's API (OpenAI-compatible) to access free LLMs. Uses LangChain's LCEL (LangChain Expression Language) to build the chain:
+
+```python
+chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+```
+
+Imports the strict prompt from `prompts/strict/strict_qa.py` to ensure the LLM only answers from document context.
+
+#### `src/pipeline.py` — RAGPipeline Orchestrator
+
+The `RAGPipeline` class ties everything together:
+
+```python
+rag = RAGPipeline(data_path="./data", llm_model="z-ai/glm-4.5-air:free")
+rag.ingest(chunk_size=1000, chunk_overlap=100)  # A → B → C → D
+rag.setup_qa(top_k=3)                           # Connect retriever + LLM
+answer, sources = rag.query("What is...?")       # 1 → 2 → 3 → 4 → 5
 ```
 
 ---
 
-## Configuration
+### Backend (`backend/`)
 
-### Chunk Size
+#### `backend/main.py` — FastAPI Application
 
-Edit `src/pipeline.py` → `ingest()` method:
+Creates the FastAPI app with:
+- CORS middleware (allows React dev server at `:5173`)
+- Three route groups: auth, documents, RAG
+- Startup event to initialize the SQLite database
+- Health check and OCR status endpoints
 
+#### `backend/auth.py` — Google OAuth + JWT
+
+- `verify_google_token(token)` → uses `google-auth` library to verify the ID token against Google's public keys and your Client ID
+- `create_jwt(user_id, email)` → issues a JWT valid for 72 hours
+- `decode_jwt(token)` → validates and decodes JWT
+- `get_current_user(credentials, db)` → FastAPI dependency that extracts the authenticated user from the Bearer token
+
+#### `backend/models.py` — Database Models
+
+Two SQLAlchemy models:
+
+| Model | Fields |
+|-------|--------|
+| **User** | id (UUID), email (unique), name, picture, created_at |
+| **Document** | id (UUID), user_id (FK), filename, original_name, size_bytes, content_type, ocr_used, chunk_count, uploaded_at |
+
+#### `backend/database.py` — SQLite Setup
+
+Creates the SQLite engine at `storage/db/rag.db` with SQLAlchemy. Provides `get_db()` dependency for FastAPI route injection.
+
+#### `backend/ocr.py` — OCR Processing
+
+- `is_tesseract_available()` → checks if Tesseract is installed
+- `ocr_pdf(pdf_path)` → converts PDF pages to images at 300 DPI, runs Tesseract on each page
+- `ocr_image(image_path)` → runs Tesseract on a single image (PNG, JPG, TIFF, BMP)
+- `extract_text_with_ocr(file_path)` → smart extraction: tries regular text first, falls back to OCR if < 50 chars extracted
+
+#### `backend/routes/auth.py` — Auth Endpoints
+
+- `POST /api/auth/google` → receives Google ID token from frontend, verifies it against Google servers, creates user in database if first-time, returns JWT
+- `GET /api/auth/me` → returns currently authenticated user's profile
+
+#### `backend/routes/documents.py` — Document Management
+
+- `POST /api/documents/upload` → accepts file upload (max 50 MB), validates extension, saves to `storage/uploads/<uuid>/`, optionally runs OCR, stores metadata in SQLite
+- `GET /api/documents/` → lists all documents belonging to the authenticated user
+- `DELETE /api/documents/{id}` → removes file from disk and database record
+
+#### `backend/routes/rag.py` — RAG Pipeline API
+
+- `POST /api/rag/ingest` → runs A → B → C → D on the user's documents, stores vectors in `storage/vectors/<uuid>/`
+- `POST /api/rag/query` → runs 1 → 2 → 3 → 4 → 5 against the user's private vector DB, returns answer + source chunks with preview
+- `GET /api/rag/stats` → returns vector count for the authenticated user
+- Maintains an in-memory cache of per-user pipelines for fast repeated queries
+
+---
+
+### Frontend (`frontend/src/`)
+
+#### `main.jsx` — React Entry Point
+
+Wraps the app in `GoogleOAuthProvider` (Client ID from env), `BrowserRouter`, and `AuthProvider`. Initializes react-hot-toast for notifications.
+
+#### `App.jsx` — Router & Auth Guards
+
+Two routes:
+- `/` → Login page (redirects to `/app` if already authenticated)
+- `/app` → Dashboard (protected — redirects to `/` if not authenticated)
+
+Uses a `ProtectedRoute` wrapper that checks auth state.
+
+#### `context/AuthContext.jsx` — Auth State Management
+
+React context providing:
+- `user` — current user object or null
+- `loading` — true while checking existing session
+- `login(credential)` — calls POST `/api/auth/google`, stores JWT + user in localStorage
+- `logout()` — clears localStorage, resets state
+
+On mount, checks for existing JWT in localStorage and validates it with GET `/api/auth/me`.
+
+#### `api.js` — Axios API Client
+
+Pre-configured Axios instance with:
+- Base URL from `VITE_API_URL` environment variable
+- **Request interceptor**: attaches JWT token from localStorage to every request
+- **Response interceptor**: on 401 → auto-clears storage and redirects to login
+- Exported functions: `googleLogin`, `uploadDocument`, `listDocuments`, `deleteDocument`, `ingestDocuments`, `queryRag`, `getRagStats`, `getOcrStatus`
+
+#### `pages/Login.jsx` — Sign-In Page
+
+Split-screen layout:
+- **Left panel**: branding, app title, 6 feature cards with icons (hidden on mobile)
+- **Right panel**: Google Sign-In button using `@react-oauth/google` component + privacy notice
+
+#### `pages/Dashboard.jsx` — Main Application Layout
+
+Three-section layout: Navbar (top) + Sidebar (left) + ChatPanel (main area). Manages state for documents, vector stats, OCR availability, model selection, and chunk settings. Fetches data from API on component mount.
+
+#### `components/Navbar.jsx` — Top Navigation Bar
+
+Displays: sidebar toggle button, app name with "ENTERPRISE" badge, user avatar from Google profile, user name, logout button.
+
+#### `components/Sidebar.jsx` — Left Panel
+
+Contains six sections:
+1. **Upload button** — file input accepting PDF, TXT, PNG, JPG, TIFF, BMP (supports multiple files)
+2. **OCR toggle** — checkbox to enable OCR (only shown when Tesseract is detected on the server)
+3. **Documents list** — filename, file size, delete button on hover. **Rejects files over 50 MB** with toast error before uploading
+4. **Vector DB status** — green badge (vectors stored) or amber badge (empty)
+5. **Ingest button** — triggers POST `/api/rag/ingest`
+6. **Settings** — LLM model dropdown, chunk size slider (200–2000), overlap slider (0–500), top-K slider (1–10)
+
+#### `components/ChatPanel.jsx` — Chat Interface
+
+Contains:
+- **Stats bar** — colored badges showing document count, vector count, top-K, current model
+- **Message list** — user messages (indigo, right-aligned), assistant messages (white card, left-aligned with bot avatar)
+- **Source expander** — collapsible panel showing source chunk filename and text preview
+- **Response time** — displayed below each assistant message
+- **Typing indicator** — animated dots while waiting for API response
+- **Empty state** — "Start a Conversation" prompt with clickable example question chips
+- **Input area** — auto-growing textarea with Enter-to-send, Send button
+
+---
+
+### Prompt Templates (`prompts/`)
+
+| Template | File | Style |
+|----------|------|-------|
+| **Strict Q&A** *(default)* | `prompts/strict/strict_qa.py` | Only answers from documents, says "not found" otherwise |
+| **Strict Cited** | `prompts/strict/strict_cited.py` | Same + adds [Source: filename] citations |
+| **Friendly** | `prompts/conversational/friendly.py` | Warm, conversational tone |
+| **ELI5** | `prompts/conversational/eli5.py` | Explain Like I'm 5 |
+| **Summarizer** | `prompts/analytical/summarizer.py` | Concise summaries |
+| **Comparison** | `prompts/analytical/comparison.py` | Compare & contrast format |
+| **Step-by-Step** | `prompts/analytical/step_by_step.py` | Numbered step reasoning |
+| **Technical** | `prompts/domain/technical.py` | Technical documentation style |
+| **Academic** | `prompts/domain/academic.py` | Scholarly tone |
+| **Legal** | `prompts/domain/legal.py` | Legal document phrasing |
+
+To switch prompts, edit the import in `src/generator.py`:
 ```python
-rag.ingest(chunk_size=500, chunk_overlap=50)  # Default
-rag.ingest(chunk_size=1000, chunk_overlap=100)  # For longer documents
+from prompts.conversational.friendly import CONVERSATIONAL_PROMPT
+PROMPT_TEMPLATE = CONVERSATIONAL_PROMPT
 ```
 
-### Number of Retrieved Chunks
+---
 
-Edit `src/pipeline.py` → `setup_qa()` method:
+## Configuration & Customization
 
-```python
-rag.setup_qa(top_k=3)  # Default: returns 3 most relevant chunks
-rag.setup_qa(top_k=5)  # More context for complex questions
-```
+### Available LLM Models (all free via OpenRouter)
 
-### Embedding Model
+| Model | ID | Best For |
+|-------|----|----------|
+| GLM-4.5-Air | `z-ai/glm-4.5-air:free` | Best balance (default) |
+| Step-3.5-Flash | `stepfun/step-3.5-flash:free` | Fast responses |
+| GPT-OSS-120B | `openai/gpt-oss-120b:free` | Strong reasoning |
+| Trinity-Mini | `arcee-ai/trinity-mini:free` | Efficient + long context |
 
-Edit `src/embedder.py`:
+Switch models in the sidebar dropdown — no code changes needed.
 
-```python
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"        # Default (fast)
-EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"        # Better quality
-EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # Multilingual
-```
+### Chunking Settings
 
-> **Note:** If you change the embedding model, delete the `vectordb/` folder and re-run `ingest`.
+| Setting | Default | Range | Effect |
+|---------|---------|-------|--------|
+| Chunk Size | 1000 chars | 200 – 2000 | Larger = more context per result |
+| Chunk Overlap | 100 chars | 0 – 500 | More = smoother boundaries |
+| Top-K Results | 3 | 1 – 10 | More = broader context for LLM |
+
+Adjustable via sidebar sliders. Changes apply on next ingest (chunk settings) or next query (top-K).
+
+### Supported File Types
+
+| Type | Extension | OCR Support |
+|------|-----------|-------------|
+| PDF | `.pdf` | ✅ (auto-fallback if text < 50 chars) |
+| Text | `.txt` | N/A |
+| PNG | `.png` | ✅ |
+| JPEG | `.jpg`, `.jpeg` | ✅ |
+| TIFF | `.tiff` | ✅ |
+| BMP | `.bmp` | ✅ |
 
 ---
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| `ModuleNotFoundError` | Make sure venv is activated: `venv\Scripts\Activate.ps1` |
-| `OPENROUTER_API_KEY not set` | Add your key to the `.env` file |
-| `No documents found` | Put PDF/TXT files in the `data/` folder |
-| `Vector DB empty` | Run `ingest` first to process documents |
-| Model ID error (400) | Check [OpenRouter models](https://openrouter.ai/models) for valid free model IDs |
+### "Access blocked: no registered origin" on Google Sign-In
+
+Your Google OAuth client doesn't have the correct JavaScript origin. Go to **Google Cloud Console → Credentials → your OAuth client** and add:
+- Authorized JavaScript origins: `http://localhost:5173`
+- Authorized redirect URIs: `http://localhost:5173`
+
+Wait 1–2 minutes after saving for Google to propagate.
+
+### "deleted_client" error
+
+You're using a Client ID from a deleted OAuth client. Create a **new Web application** OAuth client and update both `.env` files.
+
+### CORS errors in browser console
+
+Make sure the FastAPI backend is running on port 8000. The CORS middleware allows `http://localhost:5173`. If using a different port, update `backend/main.py`.
+
+### `OPENROUTER_API_KEY not set`
+
+Ensure `.env` exists in the project root with your key. Restart the backend after editing `.env`.
+
+### OCR checkbox not showing in sidebar
+
+Tesseract is not installed on your system. See [Step 6](#step-6-optional-install-tesseract-for-ocr). The app checks Tesseract availability via the `/api/ocr/status` endpoint.
+
+### `torch` / `torchvision` warnings on startup
+
+Non-critical warnings from the sentence-transformers library file watcher. Everything works normally.
+
+### Upload fails with 413 error
+
+File exceeds the 50 MB limit. The frontend also checks client-side before uploading. Compress or split the document.
+
+### "No documents uploaded" when trying to ingest
+
+Upload documents first using the sidebar upload button, then click Ingest.
+
+### Frontend `.env` changes not taking effect
+
+Vite caches environment variables at build time. Stop the dev server (`Ctrl+C`) and restart: `npm run dev`.
+
+### Google Sign-In popup closes immediately
+
+- Check browser console for errors
+- Verify `VITE_GOOGLE_CLIENT_ID` in `frontend/.env` matches your OAuth client
+- Make sure you selected **Web application** type (not Desktop) when creating the OAuth client
+- Ensure `http://localhost:5173` is in authorized origins (no trailing slash)
 
 ---
 
-## How RAG Solves LLM Limitations
+## Legacy Interfaces
 
-| LLM Problem | How RAG Fixes It |
-|-------------|------------------|
-| **Hallucination** | Grounds answers in your actual documents |
-| **Outdated knowledge** | Uses your latest documents, no retraining needed |
-| **No private data access** | Works with your proprietary/internal documents |
-| **Expensive fine-tuning** | No model training required — just add documents |
-| **Black box answers** | Shows which source chunks were used |
+### Streamlit UI
+
+The original Streamlit web interface is still available:
+
+```bash
+# Windows
+venv\Scripts\streamlit.exe run streamlit_app.py
+
+# Linux/Mac
+streamlit run streamlit_app.py
+```
+
+Opens at `http://localhost:8501`. Uses the shared `vectordb/` directory (not per-user isolated).
+
+### CLI
+
+The command-line interface is still available:
+
+```bash
+python app.py
+```
+
+Commands: `ingest`, `query`, `exit`. Uses the shared `data/` folder and `vectordb/`.
 
 ---
 
 ## License
 
-This project is open-source. Feel free to use, modify, and distribute.
-# SummarizerUsingRag
+This project is for educational purposes. Uses free tiers of OpenRouter and Google OAuth.
