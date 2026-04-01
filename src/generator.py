@@ -12,11 +12,13 @@ Supported FREE models (change in app.py):
   - arcee-ai/trinity-mini:free   → efficient + long context
 """
 import os
+import time
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from openai import RateLimitError
 
 # Load .env file automatically
 load_dotenv()
@@ -129,7 +131,18 @@ def generate_response(rag_chain, query: str, retriever=None):
     print(f"\n{'='*60}")
     print(f"[1] Query: {query}")
 
-    answer = rag_chain.invoke(query)
+    # Retry with exponential backoff on rate limit errors
+    max_retries = 4
+    for attempt in range(max_retries):
+        try:
+            answer = rag_chain.invoke(query)
+            break
+        except RateLimitError as e:
+            if attempt == max_retries - 1:
+                raise
+            wait = 2 ** attempt * 5  # 5s, 10s, 20s, 40s
+            print(f"[!] Rate limited. Retrying in {wait}s... (attempt {attempt + 1}/{max_retries})")
+            time.sleep(wait)
 
     # Fetch source docs separately if retriever is provided
     sources = retriever.invoke(query) if retriever else []

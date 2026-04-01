@@ -12,6 +12,7 @@ __pycache__/
 
 # ── Storage (user data, DBs, vectors) ──
 storage/
+data/
 
 # ── Frontend build ──
 frontend/node_modules/
